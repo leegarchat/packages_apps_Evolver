@@ -38,6 +38,7 @@ import androidx.preference.PreferenceScreen;
 
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.internal.util.android.SystemRestartUtils;
+import com.android.internal.util.evolution.KeyProviderManager;
 import com.android.settings.R;
 import com.android.settings.search.BaseSearchIndexProvider;
 import com.android.settings.SettingsPreferenceFragment;
@@ -75,6 +76,7 @@ public class Spoofing extends SettingsPreferenceFragment implements
     private static final String KEY_PIF_JSON_FILE_PREFERENCE = "pif_json_file_preference";
     private static final String KEY_UPDATE_JSON_BUTTON = "update_pif_json";
     private static final String SYS_GMS_SPOOF = "persist.sys.pixelprops.gms";
+    private static final String SYS_GMS_CERT_SPOOF = "persist.sys.pixelprops.gmscertchain";
     private static final String SYS_GOOGLE_SPOOF = "persist.sys.pphooks.enable";
     private static final String SYS_GAMEPROP_SPOOF = "persist.sys.gamehooks.enable";
     private static final String SYS_GPHOTOS_SPOOF = "persist.sys.gphooks.enable";
@@ -87,6 +89,7 @@ public class Spoofing extends SettingsPreferenceFragment implements
     private Preference mPifJsonFilePreference;
     private Preference mUpdateJsonButton;
     private PreferenceCategory mSystemWideCategory;
+    private SystemPropertySwitchPreference mDisableForceIntegrity;
     private SystemPropertySwitchPreference mGmsSpoof;
     private SystemPropertySwitchPreference mGoogleSpoof;
     private SystemPropertySwitchPreference mGamePropsSpoof;
@@ -139,18 +142,26 @@ public class Spoofing extends SettingsPreferenceFragment implements
         mSnapSpoof.setOnPreferenceChangeListener(this);
         mTensorSpoof.setOnPreferenceChangeListener(this);
 
-        mKeyboxFilePickerLauncher = registerForActivityResult(
-        new ActivityResultContracts.StartActivityForResult(),
-        result -> {
-            if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
-            Uri uri = result.getData().getData();
-            Preference pref = findPreference(KEYBOX_DATA_KEY);
-            if (pref instanceof KeyboxDataPreference) {
-                ((KeyboxDataPreference) pref).handleFileSelected(uri);
-            }
+        mDisableForceIntegrity = findPreference(SYS_GMS_CERT_SPOOF);
+        if (mDisableForceIntegrity != null) {
+            mDisableForceIntegrity.setEnabled(KeyProviderManager.isKeyboxAvailable());
         }
-    }
-    );
+
+        mKeyboxFilePickerLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
+                    Uri uri = result.getData().getData();
+                    Preference pref = findPreference(KEYBOX_DATA_KEY);
+                    if (pref instanceof KeyboxDataPreference) {
+                        ((KeyboxDataPreference) pref).handleFileSelected(uri);
+                    }
+                    if (mDisableForceIntegrity != null) {
+                        mDisableForceIntegrity.setEnabled(KeyProviderManager.isKeyboxAvailable());
+                    }
+                }
+            }
+        );
 
         mPifJsonFilePreference.setOnPreferenceClickListener(preference -> {
             openFileSelector(10001);
